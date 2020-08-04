@@ -32,7 +32,10 @@ const getRequestURL = (searchText) => {
     format: 'json', // レスポンスをJSON形式で取得
     nojsoncallback: 1, // レスポンスの先頭に関数呼び出しを含めない
   });
+
+  console.log(parameters);
   const url = `https://api.flickr.com/services/rest/?${parameters}`;
+  console.log(url);
   return url;
 };
 
@@ -151,37 +154,38 @@ new Vue({
 
       this.toFetching();
 
+      // このjqueryのgetJSONで記述している部分をVue.js axiosで記述して実装したい
       const url = getRequestURL(searchText);
-      $.getJSON(url, (data) => {
-        console.log(data);
-        console.log(data.stat);
 
-        if (data.stat !== 'ok') {
+      axios
+        .get(url)
+        .then(respons => {
+          console.log(respons);
+          console.log(respons.data.photos.photo);
+
+          if (respons.data.stat !== 'ok') {
+            this.toFailed();
+            return;
+          }
+
+          const fetchedPhotos = respons.data.photos.photo;
+
+          if (fetchedPhotos.length === 0) {
+            this.toNotFound();
+            return;
+          }
+
+          this.photos = fetchedPhotos.map(photo => ({
+            id: photo.id,
+            imageURL: getFlickrImageURL(photo, 'q'),
+            pageURL: getFlickrPageURL(photo),
+            text: getFlickrText(photo),
+          }));
+          this.toFound();
+        })
+        .catch(() => {
           this.toFailed();
-          return;
-        }
-
-        const fetchedPhotos = data.photos.photo;
-
-        // 検索テキストに該当する画像データがない場合
-        if (fetchedPhotos.length === 0) {
-          // TODO: メソッドを呼び出して、現在の状態を「検索テキストに該当する画像データがない状態」に変更する
-          this.toNotFound();
-          return;
-        }
-
-        this.photos = fetchedPhotos.map(photo => ({
-          id: photo.id,
-          imageURL: getFlickrImageURL(photo, 'q'),
-          pageURL: getFlickrPageURL(photo),
-          text: getFlickrText(photo),
-        }));
-        this.toFound();
-
-        console.log(this.photos);
-      }).fail(() => {
-        this.toFailed();
-      });
+        });
     },
   },
 });
